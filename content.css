@@ -1,15 +1,20 @@
-#mainpic.doubanMarkHost {
+.doubanMarkHost {
   position: relative;
+}
+
+a.doubanMarkHostLink {
+  display: inline-block;
+  vertical-align: top;
 }
 
 .doubanMarkBadge {
   position: absolute;
-  top: 6px;
-  left: 6px;
-  z-index: 30;
+  top: 4px;
+  left: 4px;
+  z-index: 80;
   box-sizing: border-box;
   margin: 0;
-  padding: 3px 7px;
+  padding: 2px 6px;
   border: 0;
   border-radius: 3px;
   background: #2aad27;
@@ -19,11 +24,12 @@
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
   user-select: none;
+  pointer-events: auto;
 }
 
 .doubanMarkBadge:hover,
 .doubanMarkBadge:focus {
-  background: #249622;
+  filter: brightness(0.95);
   outline: none;
 }
 
@@ -32,8 +38,29 @@
   outline-offset: 1px;
 }
 
-.doubanMarkBadge.isDisabled {
-  background: #9aa09a;
-  cursor: not-allowed;
-  box-shadow: none;
+.doubanMarkBadge.isUnwatched {
+  background: #2aad27;
+}
+
+.doubanMarkBadge.isWatched,
+.doubanMarkBadge.isHint {
+  background: #6b6b6b;
+  cursor: default;
+}
+
+.doubanMarkBadge.isLoading,
+.doubanMarkBadge.isBusy {
+  background: #8aa88a;
+  cursor: wait;
+}
+
+.doubanMarkBadge.isError {
+  background: #d9534f;
+  animation: doubanMarkFlash 0.28s ease 3;
+}
+
+@keyframes doubanMarkFlash {
+  50% {
+    opacity: 0.4;
+  }
 }

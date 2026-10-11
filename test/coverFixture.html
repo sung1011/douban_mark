@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-douban-mark-fixture="1">
+<head>
+  <meta charset="utf-8">
+  <title>豆瓣一键看过 - 本地夹具</title>
+  <link rel="stylesheet" href="../content.css">
+  <style>
+    body { font: 14px/1.5 sans-serif; margin: 24px; background: #f6f6f1; }
+    .row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+    #mainpic { width: 135px; height: 200px; background: #ccc; }
+    #mainpic img { display: block; width: 135px; height: 200px; background: #8a8a8a; }
+    .pic { width: 100px; }
+    .pic img { width: 100px; height: 148px; background: #999; display: block; }
+    .poster a img { width: 115px; height: 160px; background: #888; display: block; }
+    .nbg img { width: 75px; height: 110px; background: #777; display: block; }
+    .item-root .cover { width: 100px; height: 140px; background: #666; display: block; }
+    .movie-content img { width: 115px; height: 160px; background: #555; display: block; }
+    .note { color: #666; max-width: 52em; }
+    section { margin-bottom: 28px; }
+  </style>
+</head>
+<body>
+  <p class="note">本地夹具：模拟首页 / 榜单 / 搜索 / 条目封面。点击「未看」应走 POST（本页拦截为假接口），不应出现原生收藏对话框。</p>
+
+  <section>
+    <h2>条目封面 #mainpic</h2>
+    <div id="mainpic" data-subject-id="1292052">
+      <a class="nbgnbg" href="https://movie.douban.com/subject/1292052/photos?type=R" title="点击看更多海报">
+        <img alt="夹具海报" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==">
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>列表 / 首页 / 搜索 / 分类榜</h2>
+    <div class="row">
+      <div class="pic">
+        <em>1</em>
+        <a href="https://movie.douban.com/subject/1291546/">
+          <img width="100" alt="霸王别姬" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==">
+        </a>
+      </div>
+      <li class="poster" style="list-style:none">
+        <a href="https://movie.douban.com/subject/37068446/?from=showing">
+          <img alt="热映" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==">
+        </a>
+      </li>
+      <a class="nbg" href="https://movie.douban.com/subject/36439868/" title="排行">
+        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" width="75" alt="排行">
+      </a>
+      <div class="item-root">
+        <a class="cover-link" href="https://movie.douban.com/subject/35278770/">
+          <img class="cover" alt="搜索结果" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==">
+        </a>
+      </div>
+      <div class="movie-list-item unwatched">
+        <div class="movie-content">
+          <a href="https://movie.douban.com/subject/1292722/" target="_blank">
+            <img class="movie-img" alt="分类榜" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==">
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>不应打点</h2>
+    <a href="https://movie.douban.com/subject/1292052/">只有标题，没有封面</a>
+    <a href="https://movie.douban.com/subject/1292052/comments">
+      <img width="100" alt="短评配图不应作为条目封面" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==">
+    </a>
+    <a href="https://movie.douban.com/subject/1292052/?from=suggest">
+      <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" width="40" alt="搜索建议">
+    </a>
+  </section>
+
+  <p id="dialog" class="note">若此处出现「添加收藏：修改」，说明错误地打开了原生对话框。</p>
+
+  <script>
+    var abstractStore = {
+      '1292052': '',
+      '1291546': 'collect',
+      '37068446': '',
+      '36439868': 'wish',
+      '35278770': '',
+      '1292722': ''
+    };
+
+    var nativeFetch = window.fetch.bind(window);
+    window.fetch = function (url, options) {
+      var href = String(url);
+      var id;
+      var abs = href.match(/subject_abstract\?subject_id=(\d+)/);
+      if (abs) {
+        id = abs[1];
+        return Promise.resolve(new Response(JSON.stringify({
+          r: 0,
+          subject: { id: id, collection_status: abstractStore[id] || '' }
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
+      var interest = href.match(/\/j\/subject\/(\d+)\/interest/);
+      if (interest) {
+        id = interest[1];
+        var body = (options && options.body) || '';
+        if (String(body).indexOf('interest=collect') === -1) {
+          return Promise.resolve(new Response(JSON.stringify({ r: 1, msg: 'bad body' }), { status: 200 }));
+        }
+        if (String(body).indexOf('ck=') === -1) {
+          return Promise.resolve(new Response(JSON.stringify({ r: 1, msg: 'no ck' }), { status: 200 }));
+        }
+        abstractStore[id] = 'collect';
+        return Promise.resolve(new Response(JSON.stringify({ r: 0, interest_status: 'collect' }), { status: 200 }));
+      }
+      return nativeFetch(url, options);
+    };
+
+    document.cookie = 'ck=test';
+  </script>
+  <script src="../markCore.js"></script>
+  <script src="../content.js"></script>
+  <script>
+    (function () {
+      function snapshot() {
+        return {
+          count: document.querySelectorAll('.doubanMarkBadge').length,
+          unwatched: document.querySelectorAll('.doubanMarkBadge.isUnwatched').length,
+          watched: document.querySelectorAll('.doubanMarkBadge.isWatched').length,
+          error: document.querySelectorAll('.doubanMarkBadge.isError').length,
+          dialog: (document.getElementById('dialog') || {}).textContent || ''
+        };
+      }
+      window.addEventListener('load', function () {
+        window.setTimeout(function () {
+          var before = snapshot();
+          var target = document.querySelector('.doubanMarkBadge.isUnwatched');
+          if (target) target.click();
+          window.setTimeout(function () {
+            var after = snapshot();
+            var out = document.createElement('pre');
+            out.id = 'autoResult';
+            out.textContent = JSON.stringify({ before: before, after: after });
+            document.body.appendChild(out);
+          }, 200);
+        }, 200);
+      });
+    })();
+  </script>
+</body>
+</html>
