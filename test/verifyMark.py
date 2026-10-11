@@ -212,16 +212,16 @@ def main() -> int:
     )
     check("type unknown", node_eval("m.parseSubjectType({subject:{collection_status:''}})"), "")
 
-    check("badge 👀🎬", node_eval("m.formatBadgeText('','movie')"), "👀🎬")
-    check("badge ❤️📺", node_eval("m.formatBadgeText('wish','tv')"), "❤️📺")
-    check("badge 🟠🎬", node_eval("m.formatBadgeText('do','movie')"), "🟠🎬")
-    check("badge ✅📺", node_eval("m.formatBadgeText('collect','tv')"), "✅📺")
-    check("badge F movie", node_eval("m.formatBadgeText('F','movie')"), "❤️🎬")
-    check("badge P omit type", node_eval("m.formatBadgeText('P','')"), "✅")
-    check("badge 未看未知", node_eval("m.formatBadgeText('','')"), "👀")
-    check("title wish tv", node_eval("m.formatBadgeTitle('wish','tv')"), "想看 · 剧集")
-    check("title none movie", node_eval("m.formatBadgeTitle('','movie')"), "未看 · 电影")
-    check("title collect no type", node_eval("m.formatBadgeTitle('collect','')"), "看过")
+    check("badge 👀", node_eval("m.formatBadgeText('','movie')"), "👀")
+    check("badge ❤️", node_eval("m.formatBadgeText('wish','tv')"), "❤️")
+    check("badge 🟠", node_eval("m.formatBadgeText('do','movie')"), "🟠")
+    check("badge ✅", node_eval("m.formatBadgeText('collect','tv')"), "✅")
+    check("badge F ignore type", node_eval("m.formatBadgeText('F','movie')"), "❤️")
+    check("badge P", node_eval("m.formatBadgeText('P','')"), "✅")
+    check("badge 未看", node_eval("m.formatBadgeText('','')"), "👀")
+    check("title wish", node_eval("m.formatBadgeTitle('wish','tv')"), "想看")
+    check("title none", node_eval("m.formatBadgeTitle('','movie')"), "未看")
+    check("title collect", node_eval("m.formatBadgeTitle('collect','')"), "看过")
 
     check(
         "dom og tv",
@@ -265,6 +265,10 @@ def main() -> int:
 
     if "subtype: 'Movie'" not in html or "subtype: 'TV'" not in html:
         failures.append("fixture must include Movie and TV subtype samples")
+    if "aboveCover" not in html:
+        failures.append("fixture must assert badge sits above the cover")
+    if "🎬" in html or "📺" in html:
+        failures.append("fixture must not describe movie/TV type emoji")
     if "pageBridge" in html or "collectTarget" in html:
         failures.append("fixture must not load pageBridge / collectTarget")
     if "添加收藏：修改" in html and "不应出现" not in html:
@@ -281,20 +285,26 @@ def main() -> int:
         failures.append("content.css badge must use pointer-events: none")
     if "cursor: pointer" in css:
         failures.append("content.css badge must not look clickable")
-    if ".doubanMarkBadge.isWish" not in css or ".doubanMarkBadge.isDoing" not in css:
-        failures.append("content.css missing wish/doing background classes")
-    if "#3b82c4" not in css or "#e67e22" not in css or "#2aad27" not in css or "#6b6b6b" not in css:
-        failures.append("content.css must keep green/blue/orange/gray state colors")
-    if "padding-bottom" not in css:
-        failures.append("content.css host must reserve padding-bottom below the cover")
-    if re.search(r"\.doubanMarkBadge\s*\{[^}]*\btop:\s*4px\b", css, re.S):
-        failures.append("content.css badge must not overlay the poster at top: 4px")
-    if not re.search(r"\.doubanMarkBadge\s*\{[^}]*\bbottom:\s*\d+px\b", css, re.S):
-        failures.append("content.css badge must sit at the host bottom below the cover")
+    if "padding-top" not in css:
+        failures.append("content.css host must reserve padding-top above the cover")
+    if "padding-bottom" in css:
+        failures.append("content.css host must not reserve space below the cover")
+    if re.search(r"\.doubanMarkBadge\s*\{[^}]*\bbottom:\s*\d+px\b", css, re.S):
+        failures.append("content.css badge must not sit below the cover")
+    if not re.search(r"\.doubanMarkBadge\s*\{[^}]*\btop:\s*0\b", css, re.S):
+        failures.append("content.css badge must sit at the host top above the cover")
+    if "transparent" not in css:
+        failures.append("content.css badge must be transparent")
+    if re.search(r"background:\s*#", css):
+        failures.append("content.css must not keep a colored pill background")
+    if "box-shadow: none" not in css and "box-shadow:none" not in css:
+        failures.append("content.css badge must not keep a shadow panel")
 
     core = NODE.read_text(encoding="utf-8")
     if "interest=collect" in core or "interestUrl" in core:
         failures.append("markCore.js must not keep one-click POST helpers")
+    if "TYPE_EMOJI" in core or "🎬" in core or "📺" in core:
+        failures.append("markCore.js must not keep movie/TV type emoji")
 
     if failures:
         print("FAILED")
@@ -302,7 +312,7 @@ def main() -> int:
             print(" -", item)
         return 1
 
-    print("ok: four-state emoji badge + readonly + cover selectors")
+    print("ok: status-only emoji badge above cover + readonly + cover selectors")
     return 0
 
 

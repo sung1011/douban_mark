@@ -145,8 +145,8 @@
       badge.removeAttribute('data-subject-type');
     }
 
-    badge.textContent = DoubanMark.formatBadgeText(parsed.status, parsed.type);
-    badge.title = DoubanMark.formatBadgeTitle(parsed.status, parsed.type);
+    badge.textContent = DoubanMark.formatBadgeText(parsed.status);
+    badge.title = DoubanMark.formatBadgeTitle(parsed.status);
   }
 
   function rememberStatus(subjectId, record) {

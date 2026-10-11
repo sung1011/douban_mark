@@ -53,11 +53,6 @@
     collect: 'isWatched'
   };
 
-  api.TYPE_EMOJI = {
-    movie: '🎬',
-    tv: '📺'
-  };
-
   api.normalizeStatus = function (status) {
     if (status == null) return 'none';
     var raw = String(status).trim();
@@ -205,19 +200,14 @@
     return '';
   };
 
-  api.formatBadgeText = function (status, type) {
+  api.formatBadgeText = function (status) {
     var statusKey = api.normalizeStatus(status);
-    var typeKey = type === 'movie' || type === 'tv' ? type : api.normalizeSubjectType(type);
-    var text = api.STATUS_EMOJI[statusKey] || api.STATUS_EMOJI.none;
-    if (typeKey && api.TYPE_EMOJI[typeKey]) text += api.TYPE_EMOJI[typeKey];
-    return text;
+    return api.STATUS_EMOJI[statusKey] || api.STATUS_EMOJI.none;
   };
 
-  api.formatBadgeTitle = function (status, type) {
+  api.formatBadgeTitle = function (status) {
     var statusKey = api.normalizeStatus(status);
-    var statusLabel = api.STATUS_LABEL[statusKey] || api.STATUS_LABEL.none;
-    var typeLabel = api.formatTypeLabel(type);
-    return typeLabel ? statusLabel + ' · ' + typeLabel : statusLabel;
+    return api.STATUS_LABEL[statusKey] || api.STATUS_LABEL.none;
   };
 
   api.parseAbstractStatus = function (json) {
