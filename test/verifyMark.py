@@ -265,8 +265,10 @@ def main() -> int:
 
     if "subtype: 'Movie'" not in html or "subtype: 'TV'" not in html:
         failures.append("fixture must include Movie and TV subtype samples")
-    if "aboveCover" not in html:
-        failures.append("fixture must assert badge sits above the cover")
+    if "insideCover" not in html:
+        failures.append("fixture must assert badge sits inside the cover")
+    if "aboveCover" in html:
+        failures.append("fixture must not assert badge sits above the cover")
     if "🎬" in html or "📺" in html:
         failures.append("fixture must not describe movie/TV type emoji")
     if "pageBridge" in html or "collectTarget" in html:
@@ -285,14 +287,16 @@ def main() -> int:
         failures.append("content.css badge must use pointer-events: none")
     if "cursor: pointer" in css:
         failures.append("content.css badge must not look clickable")
-    if "padding-top" not in css:
-        failures.append("content.css host must reserve padding-top above the cover")
+    if "padding-top" in css:
+        failures.append("content.css host must not reserve padding-top above the cover")
     if "padding-bottom" in css:
         failures.append("content.css host must not reserve space below the cover")
     if re.search(r"\.doubanMarkBadge\s*\{[^}]*\bbottom:\s*\d+px\b", css, re.S):
         failures.append("content.css badge must not sit below the cover")
-    if not re.search(r"\.doubanMarkBadge\s*\{[^}]*\btop:\s*0\b", css, re.S):
-        failures.append("content.css badge must sit at the host top above the cover")
+    if not re.search(r"\.doubanMarkBadge\s*\{[^}]*\btop:\s*4px\b", css, re.S):
+        failures.append("content.css badge must sit inside the cover at top: 4px")
+    if not re.search(r"\.doubanMarkBadge\s*\{[^}]*\bleft:\s*4px\b", css, re.S):
+        failures.append("content.css badge must sit inside the cover at left: 4px")
     if "transparent" not in css:
         failures.append("content.css badge must be transparent")
     if re.search(r"background:\s*#", css):
@@ -312,7 +316,7 @@ def main() -> int:
             print(" -", item)
         return 1
 
-    print("ok: status-only emoji badge above cover + readonly + cover selectors")
+    print("ok: status-only emoji badge inside cover top-left + readonly + cover selectors")
     return 0
 
 

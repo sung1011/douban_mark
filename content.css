@@ -1,9 +1,5 @@
-.doubanMarkHost,
-#mainpic.doubanMarkHost {
+.doubanMarkHost {
   position: relative;
-  box-sizing: content-box;
-  overflow: visible;
-  padding-top: 22px;
 }
 
 a.doubanMarkHostLink {
@@ -13,14 +9,13 @@ a.doubanMarkHostLink {
 
 .doubanMarkBadge {
   position: absolute;
-  top: 0;
-  bottom: auto;
-  left: 2px;
+  top: 4px;
+  left: 4px;
   z-index: 80;
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  max-width: calc(100% - 4px);
+  max-width: calc(100% - 8px);
   overflow: visible;
   white-space: nowrap;
   border: 0;

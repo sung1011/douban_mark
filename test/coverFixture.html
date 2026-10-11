@@ -21,7 +21,7 @@
   </style>
 </head>
 <body>
-  <p class="note">本地夹具：模拟首页 / 榜单 / 搜索 / 条目封面。角标在封面顶边上方（不叠海报、无底板），只读（pointer-events:none），文案仅为一个状态 emoji（👀 / ❤️ / 🟠 / ✅），点击应穿透到封面链接，不应 POST collect，也不应出现原生收藏对话框。</p>
+  <p class="note">本地夹具：模拟首页 / 榜单 / 搜索 / 条目封面。角标在封面内左上角（叠在海报上、无底板、无 padding-top），只读（pointer-events:none），文案仅为一个状态 emoji（👀 / ❤️ / 🟠 / ✅），点击应穿透到封面链接，不应 POST collect，也不应出现原生收藏对话框。</p>
 
   <section>
     <h2>条目封面 #mainpic</h2>
@@ -136,7 +136,7 @@
         var types = [];
         var pointerEvents = [];
         var backgrounds = [];
-        var aboveCover = [];
+        var insideCover = [];
         for (var i = 0; i < badges.length; i++) {
           texts.push(badges[i].textContent);
           types.push(badges[i].getAttribute('data-subject-type') || '');
@@ -146,11 +146,18 @@
           var host = badges[i].closest('.doubanMarkHost');
           var img = host && host.querySelector('img');
           if (!img) {
-            aboveCover.push(false);
+            insideCover.push(false);
           } else {
             var badgeBox = badges[i].getBoundingClientRect();
             var imgBox = img.getBoundingClientRect();
-            aboveCover.push(badgeBox.bottom <= imgBox.top + 1);
+            insideCover.push(
+              badgeBox.top >= imgBox.top - 1 &&
+              badgeBox.left >= imgBox.left - 1 &&
+              badgeBox.bottom <= imgBox.bottom + 1 &&
+              badgeBox.right <= imgBox.right + 1 &&
+              badgeBox.top <= imgBox.top + 12 &&
+              badgeBox.left <= imgBox.left + 12
+            );
           }
         }
         return {
@@ -162,7 +169,7 @@
           types: types,
           pointerEvents: pointerEvents,
           backgrounds: backgrounds,
-          aboveCover: aboveCover,
+          insideCover: insideCover,
           posted: postedIds.slice(),
           dialog: (document.getElementById('dialog') || {}).textContent || ''
         };
