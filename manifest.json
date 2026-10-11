@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "豆瓣一键看过",
-  "version": "2.0.0",
-  "description": "在豆瓣电影封面左上角显示未看/已看角标；点击未看后直接 POST 标记为看过，不打开豆瓣原生对话框。",
+  "name": "豆瓣看过角标",
+  "version": "3.0.0",
+  "description": "在豆瓣电影封面左上角显示未看/已看及电影/剧集类型角标；只读、点击穿透到封面，不标记看过。",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -10,7 +10,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "豆瓣一键看过",
+    "default_title": "豆瓣看过角标",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",

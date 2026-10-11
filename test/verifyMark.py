@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""核对一键看过核心逻辑与封面打点规则（与 markCore.js / content.js 一致）。"""
+"""核对看过角标核心逻辑与封面打点规则（与 markCore.js / content.js 一致）。"""
 
 from html.parser import HTMLParser
 from pathlib import Path
@@ -10,6 +10,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 NODE = ROOT / "markCore.js"
+CONTENT = ROOT / "content.js"
+CSS = ROOT / "content.css"
 FIXTURE = Path(__file__).with_name("coverFixture.html")
 SUBJECT_ID = re.compile(r"/subject/(\d+)")
 SKIP_SUBPATH = re.compile(
@@ -138,54 +140,77 @@ def main() -> int:
         False,
     )
 
-    check(
-        "ck 读取",
-        node_eval("m.readCkFromCookie('bid=abc; ck=nOIj; ll=\"108288\"')"),
-        "nOIj",
-    )
-    check("ck 缺失", node_eval("m.readCkFromCookie('bid=abc; ll=1')"), "")
-    check("ck 空值不算登录", node_eval("m.isLoggedInCk(m.readCkFromCookie('ck='))"), False)
-    check("ck 存在算登录", node_eval("m.isLoggedInCk('nOIj')"), True)
-
     check("watched collect", node_eval("m.isWatchedStatus('collect')"), True)
     check("watched wish", node_eval("m.isWatchedStatus('wish')"), False)
     check("watched empty", node_eval("m.isWatchedStatus('')"), False)
-
-    body = node_eval("m.buildCollectBody('nOIj')")
-    if "ck=nOIj" not in body or "interest=collect" not in body or "foldcollect=F" not in body:
-        failures.append(f"POST body missing fields: {body}")
-    if "interest=wish" in body:
-        failures.append("POST body must not mark wish")
 
     check(
         "abstract url",
         node_eval("m.abstractUrl('1292052')"),
         "https://movie.douban.com/j/subject_abstract?subject_id=1292052",
     )
-    check(
-        "interest url",
-        node_eval("m.interestUrl('1292052')"),
-        "https://movie.douban.com/j/subject/1292052/interest",
-    )
 
-    parsed = node_eval("m.parseAbstractStatus({r:0,subject:{collection_status:'collect'}})")
+    parsed = node_eval("m.parseAbstractStatus({r:0,subject:{collection_status:'collect',subtype:'Movie',is_tv:false}})")
     check("abstract collect ok", parsed.get("ok"), True)
     check("abstract collect status", parsed.get("status"), "collect")
+    check("abstract collect type", parsed.get("type"), "movie")
+    parsed = node_eval("m.parseAbstractStatus({r:0,subject:{collection_status:'',is_tv:true,subtype:'TV'}})")
+    check("abstract tv type", parsed.get("type"), "tv")
     parsed = node_eval("m.parseAbstractStatus({r:0,subject:{collection_status:''}})")
-    check("abstract empty", parsed.get("status"), "")
+    check("abstract empty status", parsed.get("status"), "")
+    check("abstract empty type", parsed.get("type"), "")
     parsed = node_eval("m.parseAbstractStatus({r:1})")
     check("abstract r1", parsed.get("ok"), False)
 
-    ok = node_eval("m.parseInterestResponse(200, JSON.stringify({r:0}))")
-    check("interest r0", ok.get("ok"), True)
-    bad = node_eval("m.parseInterestResponse(200, JSON.stringify({r:1,msg:'fail'}))")
-    check("interest r1", bad.get("ok"), False)
-    login = node_eval("m.parseInterestResponse(200, '<html>请登录 accounts.douban.com</html>')")
-    check("interest login html", login.get("reason"), "nologin")
-    forbidden = node_eval("m.parseInterestResponse(403, '{}')")
-    check("interest 403", forbidden.get("reason"), "nologin")
-    empty = node_eval("m.parseInterestResponse(200, '  ')")
-    check("interest empty not success", empty.get("ok"), False)
+    check(
+        "type from is_tv true",
+        node_eval("m.parseSubjectType({subject:{is_tv:true,subtype:'Movie'}})"),
+        "tv",
+    )
+    check(
+        "type from subtype Movie",
+        node_eval("m.parseSubjectType({subject:{subtype:'Movie'}})"),
+        "movie",
+    )
+    check(
+        "type from type_name",
+        node_eval("m.parseSubjectType({subject:{type_name:'电视剧'}})"),
+        "tv",
+    )
+    check(
+        "type from media_type",
+        node_eval("m.parseSubjectType({subject:{media_type:'film'}})"),
+        "movie",
+    )
+    check("type unknown", node_eval("m.parseSubjectType({subject:{collection_status:''}})"), "")
+
+    check("badge 未看电影", node_eval("m.formatBadgeText('','movie')"), "未看·电影")
+    check("badge 已看剧集", node_eval("m.formatBadgeText('collect','tv')"), "已看·剧集")
+    check("badge 未看未知", node_eval("m.formatBadgeText('','')"), "未看")
+    check("badge 已看未知", node_eval("m.formatBadgeText('collect','')"), "已看")
+    check("badge wish 剧集", node_eval("m.formatBadgeText('wish','tv')"), "未看·剧集")
+
+    check(
+        "dom og tv",
+        node_eval("m.parseTypeFromDomHints({ogType:'video.tv_show'})"),
+        "tv",
+    )
+    check(
+        "dom og movie",
+        node_eval("m.parseTypeFromDomHints({ogType:'video.movie'})"),
+        "movie",
+    )
+    check(
+        "dom 集数",
+        node_eval("m.parseTypeFromDomHints({infoText:'导演: x\\n集数: 10\\n单集片长: 60分钟'})"),
+        "tv",
+    )
+    check(
+        "dom 片长",
+        node_eval("m.parseTypeFromDomHints({infoText:'导演: x\\n片长: 142分钟'})"),
+        "movie",
+    )
+    check("dom empty", node_eval("m.parseTypeFromDomHints({})"), "")
 
     check("skip tiny 40", node_eval("m.shouldSkipTinyImage('40', null, '')"), True)
     check("keep 75", node_eval("m.shouldSkipTinyImage('75', null, '')"), False)
@@ -197,7 +222,6 @@ def main() -> int:
     covers = parser.covers
     if parser.mainpic_id:
         covers = [parser.mainpic_id] + covers
-    # #mainpic 内 photos 链接上的 img 不算封面链接，但主海报仍按 data-subject-id 打点
     unique = []
     for sid in covers:
         if sid not in unique:
@@ -206,10 +230,28 @@ def main() -> int:
     expected = ["1292052", "1291546", "37068446", "36439868", "35278770", "1292722"]
     check("fixture covers", unique, expected)
 
+    if "subtype: 'Movie'" not in html or "subtype: 'TV'" not in html:
+        failures.append("fixture must include Movie and TV subtype samples")
     if "pageBridge" in html or "collectTarget" in html:
         failures.append("fixture must not load pageBridge / collectTarget")
     if "添加收藏：修改" in html and "不应出现" not in html:
         failures.append("fixture still describes native dialog as success")
+
+    content = CONTENT.read_text(encoding="utf-8")
+    if "postCollect" in content or "/interest" in content or "buildCollectBody" in content:
+        failures.append("content.js must not POST collect / interest")
+    if "addEventListener('click'" in content or 'addEventListener("click"' in content:
+        failures.append("content.js badge must not handle click")
+
+    css = CSS.read_text(encoding="utf-8")
+    if "pointer-events: none" not in css and "pointer-events:none" not in css:
+        failures.append("content.css badge must use pointer-events: none")
+    if "cursor: pointer" in css:
+        failures.append("content.css badge must not look clickable")
+
+    core = NODE.read_text(encoding="utf-8")
+    if "interest=collect" in core or "interestUrl" in core:
+        failures.append("markCore.js must not keep one-click POST helpers")
 
     if failures:
         print("FAILED")
@@ -217,7 +259,7 @@ def main() -> int:
             print(" -", item)
         return 1
 
-    print("ok: ck/POST/status + cover selectors (list/home/search/detail)")
+    print("ok: type labels + readonly badge + cover selectors (list/home/search/detail)")
     return 0
 
 

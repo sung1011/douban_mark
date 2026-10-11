@@ -1,9 +1,19 @@
-/* 豆瓣一键看过：纯函数（id / ck / 状态 / POST 体），无 DOM、无 fetch */
+/* 豆瓣看过角标：纯函数（id / 状态 / 类型 / 文案），无 DOM、无 fetch */
 (function (root) {
   var api = root.DoubanMark || {};
 
   var SUBJECT_ID = /\/subject\/(\d+)/;
   var SKIP_SUBPATH = /\/subject\/\d+\/(photos|trailer|comments|reviews|celebrities|questions|discussion|wishes|collections|mupload)/;
+  var TYPE_FIELDS = [
+    'subtype',
+    'type_name',
+    'typeName',
+    'media_type',
+    'mediaType',
+    'subject_type',
+    'subjectType',
+    'type'
+  ];
 
   api.MOVIE_ORIGIN = 'https://movie.douban.com';
 
@@ -22,28 +32,6 @@
     return true;
   };
 
-  api.readCkFromCookie = function (cookieStr) {
-    var raw = String(cookieStr || '');
-    var parts = raw.split(';');
-    for (var i = 0; i < parts.length; i++) {
-      var p = parts[i].replace(/^\s+/, '');
-      if (p.indexOf('ck=') !== 0) continue;
-      var value = p.slice(3);
-      try {
-        value = decodeURIComponent(value);
-      } catch (err) {
-        /* 保持原值 */
-      }
-      value = value.replace(/^"|"$/g, '').trim();
-      return value;
-    }
-    return '';
-  };
-
-  api.isLoggedInCk = function (ck) {
-    return !!(ck && String(ck).trim());
-  };
-
   api.isWatchedStatus = function (status) {
     return status === 'collect' || status === '看过';
   };
@@ -52,65 +40,154 @@
     return api.MOVIE_ORIGIN + '/j/subject_abstract?subject_id=' + encodeURIComponent(subjectId);
   };
 
-  api.interestUrl = function (subjectId) {
-    return api.MOVIE_ORIGIN + '/j/subject/' + encodeURIComponent(subjectId) + '/interest';
+  api.normalizeSubjectType = function (raw) {
+    if (raw === true || raw === 1) return 'tv';
+    if (raw === false || raw === 0) return 'movie';
+    var t = String(raw == null ? '' : raw).trim().toLowerCase();
+    if (!t) return '';
+    if (
+      t === 'tv' ||
+      t === 'tvs' ||
+      t === 'tv_show' ||
+      t === 'tv-show' ||
+      t === 'tvshow' ||
+      t === 'video.tv_show' ||
+      t === 'drama' ||
+      t === 'series' ||
+      t === '剧集' ||
+      t === '电视剧'
+    ) {
+      return 'tv';
+    }
+    if (
+      t === 'movie' ||
+      t === 'film' ||
+      t === 'video.movie' ||
+      t === 'video.film' ||
+      t === '电影'
+    ) {
+      return 'movie';
+    }
+    return '';
   };
 
-  api.buildCollectBody = function (ck) {
-    return [
-      'ck=' + encodeURIComponent(ck || ''),
-      'interest=collect',
-      'rating=',
-      'foldcollect=F',
-      'tags=',
-      'comment='
-    ].join('&');
+  api.parseSubjectType = function (json) {
+    if (!json || typeof json !== 'object') return '';
+    var subject = json.subject && typeof json.subject === 'object' ? json.subject : json;
+    var fromFlag = parseIsTv(subject.is_tv);
+    if (fromFlag) return fromFlag;
+
+    var i;
+    for (i = 0; i < TYPE_FIELDS.length; i++) {
+      var key = TYPE_FIELDS[i];
+      if (subject[key] == null || subject[key] === '') continue;
+      var normalized = api.normalizeSubjectType(subject[key]);
+      if (normalized) return normalized;
+    }
+
+    if (json !== subject) {
+      for (i = 0; i < TYPE_FIELDS.length; i++) {
+        var topKey = TYPE_FIELDS[i];
+        if (json[topKey] == null || json[topKey] === '') continue;
+        var topNormalized = api.normalizeSubjectType(json[topKey]);
+        if (topNormalized) return topNormalized;
+      }
+    }
+
+    var episodes = subject.episodes_count == null ? '' : String(subject.episodes_count).trim();
+    if (episodes && episodes !== '0') return 'tv';
+    return '';
+  };
+
+  api.parseTypeFromDomHints = function (hints) {
+    hints = hints || {};
+    var fromOg = api.normalizeSubjectType(hints.ogType);
+    if (fromOg) return fromOg;
+
+    var fromAttr = api.normalizeSubjectType(hints.dataSubtype || hints.dataType);
+    if (fromAttr) return fromAttr;
+
+    var info = String(hints.infoText || '');
+    if (/集数/.test(info) || /单集片长/.test(info)) return 'tv';
+
+    var heading = String(hints.headingText || '');
+    if (/电视剧/.test(heading) || /剧集/.test(heading)) return 'tv';
+    if (/电影/.test(heading) && !/电视剧/.test(heading)) return 'movie';
+
+    if (/片长/.test(info) && !/集数/.test(info)) return 'movie';
+    return '';
+  };
+
+  api.parseTypeFromDocument = function (doc, pageHref, subjectId) {
+    if (!doc) return '';
+    var pageId = api.extractSubjectId(pageHref || '');
+    if (!pageId && doc.getElementById) {
+      var mainpic = doc.getElementById('mainpic');
+      if (mainpic && mainpic.getAttribute) {
+        pageId = mainpic.getAttribute('data-subject-id') || '';
+      }
+    }
+    if (!pageId || !subjectId || String(pageId) !== String(subjectId)) return '';
+
+    var ogType = '';
+    var og = doc.querySelector && doc.querySelector('meta[property="og:type"]');
+    if (og && og.getAttribute) ogType = og.getAttribute('content') || '';
+
+    var infoText = '';
+    var info = doc.getElementById && doc.getElementById('info');
+    if (info) infoText = info.textContent || '';
+
+    var headingText = '';
+    var h1 = doc.querySelector && doc.querySelector('#content h1');
+    if (h1) headingText = h1.textContent || '';
+
+    var dataSubtype = '';
+    var dataType = '';
+    var host = doc.getElementById && doc.getElementById('mainpic');
+    if (host && host.getAttribute) {
+      dataSubtype = host.getAttribute('data-subtype') || host.getAttribute('data-subject-subtype') || '';
+      dataType = host.getAttribute('data-type') || host.getAttribute('data-subject-type') || '';
+    }
+
+    return api.parseTypeFromDomHints({
+      ogType: ogType,
+      infoText: infoText,
+      headingText: headingText,
+      dataSubtype: dataSubtype,
+      dataType: dataType
+    });
+  };
+
+  api.formatTypeLabel = function (type) {
+    if (type === 'movie') return '电影';
+    if (type === 'tv') return '剧集';
+    return '';
+  };
+
+  api.formatBadgeText = function (status, type) {
+    var prefix = api.isWatchedStatus(status) ? '已看' : '未看';
+    var label = api.formatTypeLabel(type);
+    if (!label) return prefix;
+    return prefix + '·' + label;
+  };
+
+  api.formatBadgeTitle = function (status, type) {
+    return api.formatBadgeText(status, type);
   };
 
   api.parseAbstractStatus = function (json) {
     if (!json || typeof json !== 'object') {
-      return { ok: false, status: '', reason: 'invalid' };
+      return { ok: false, status: '', type: '', reason: 'invalid' };
     }
     if (json.r !== 0 && json.r !== '0' && json.r != null) {
-      return { ok: false, status: '', reason: 'r' };
+      return { ok: false, status: '', type: '', reason: 'r' };
     }
     var subject = json.subject;
     if (!subject || typeof subject !== 'object') {
-      return { ok: false, status: '', reason: 'nosubject' };
+      return { ok: false, status: '', type: '', reason: 'nosubject' };
     }
     var status = subject.collection_status == null ? '' : String(subject.collection_status);
-    return { ok: true, status: status };
-  };
-
-  api.parseInterestResponse = function (httpStatus, text) {
-    if (httpStatus === 401 || httpStatus === 403) {
-      return { ok: false, reason: 'nologin' };
-    }
-    if (httpStatus < 200 || httpStatus >= 300) {
-      return { ok: false, reason: 'http' };
-    }
-    var trimmed = String(text || '').trim();
-    if (!trimmed) return { ok: false, reason: 'empty' };
-    if (trimmed.charAt(0) === '<') {
-      if (/登录|login|accounts\.douban|passport/i.test(trimmed)) {
-        return { ok: false, reason: 'nologin' };
-      }
-      return { ok: false, reason: 'html' };
-    }
-    var json;
-    try {
-      json = JSON.parse(trimmed);
-    } catch (err) {
-      return { ok: false, reason: 'parse' };
-    }
-    if (!json || typeof json !== 'object') return { ok: false, reason: 'invalid' };
-    if (json.r === 0 || json.r === '0') {
-      return {
-        ok: true,
-        status: json.interest_status || 'collect'
-      };
-    }
-    return { ok: false, reason: json.msg || json.error || 'fail' };
+    return { ok: true, status: status, type: api.parseSubjectType(json) };
   };
 
   api.shouldSkipTinyImage = function (widthAttr, heightAttr, className) {
@@ -122,6 +199,13 @@
     if (h && h < 50) return true;
     return false;
   };
+
+  function parseIsTv(value) {
+    if (typeof value === 'boolean') return value ? 'tv' : 'movie';
+    if (value === 1 || value === '1' || value === 'true') return 'tv';
+    if (value === 0 || value === '0' || value === 'false') return 'movie';
+    return '';
+  }
 
   root.DoubanMark = api;
   if (typeof module !== 'undefined' && module.exports) {

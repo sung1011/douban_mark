@@ -4,8 +4,6 @@
   var BADGE_CLASS = 'doubanMarkBadge';
   var BOUND_ATTR = 'data-douban-mark-bound';
   var SCAN_MS = 160;
-  var FEEDBACK_MS = 1200;
-  var ERROR_MS = 1400;
   var MAX_FETCH = 4;
 
   var statusCache = {};
@@ -19,17 +17,6 @@
     document.addEventListener('DOMContentLoaded', start);
   } else {
     start();
-  }
-
-  function isFixture() {
-    return document.documentElement.getAttribute('data-douban-mark-fixture') === '1';
-  }
-
-  function currentCk() {
-    var ck = DoubanMark.readCkFromCookie(document.cookie);
-    if (ck) return ck;
-    if (isFixture()) return 'test';
-    return '';
   }
 
   function start() {
@@ -109,6 +96,16 @@
     return '';
   }
 
+  function asRecord(value) {
+    if (value && typeof value === 'object') {
+      return {
+        status: value.status == null ? '' : String(value.status),
+        type: value.type == null ? '' : String(value.type)
+      };
+    }
+    return { status: value == null ? '' : String(value), type: '' };
+  }
+
   function mountOnHost(host, subjectId) {
     if (!host || !subjectId) return;
     if (host.getAttribute(BOUND_ATTR) === subjectId && host.querySelector('.' + BADGE_CLASS)) {
@@ -122,107 +119,45 @@
     if (host.tagName === 'A') host.classList.add(LINK_CLASS);
     host.setAttribute(BOUND_ATTR, subjectId);
 
-    var badge = document.createElement('button');
-    badge.type = 'button';
+    var badge = document.createElement('span');
     badge.className = BADGE_CLASS + ' isLoading';
     badge.setAttribute('data-subject-id', subjectId);
+    badge.setAttribute('aria-hidden', 'true');
     badge.textContent = '…';
     badge.title = '读取标记状态';
 
-    badge.addEventListener('click', function (event) {
-      event.preventDefault();
-      event.stopPropagation();
-      if (typeof event.stopImmediatePropagation === 'function') {
-        event.stopImmediatePropagation();
-      }
-      onBadgeClick(badge, subjectId);
-    });
-
     host.insertBefore(badge, host.firstChild);
-    loadStatus(subjectId, function (status) {
-      paintBadge(badge, status, '');
+    loadStatus(subjectId, function (record) {
+      paintBadge(badge, record);
     });
   }
 
-  function paintBadge(badge, status, mode) {
+  function paintBadge(badge, record) {
     if (!badge || !badge.parentNode) return;
+    var parsed = asRecord(record);
     badge.classList.remove('isLoading', 'isUnwatched', 'isWatched', 'isBusy', 'isError', 'isHint');
-    badge.disabled = false;
 
-    if (mode === 'busy') {
-      badge.classList.add('isBusy');
-      badge.textContent = '…';
-      badge.title = '正在标记看过';
-      badge.disabled = true;
-      return;
-    }
-    if (mode === 'error') {
-      badge.classList.add('isError');
-      badge.textContent = '失败';
-      badge.title = '未登录或标记失败';
-      return;
-    }
-    if (mode === 'hint') {
-      badge.classList.add('isWatched', 'isHint');
-      badge.textContent = '已看过';
-      badge.title = '已经标记为看过';
-      return;
-    }
-
-    if (DoubanMark.isWatchedStatus(status)) {
+    if (DoubanMark.isWatchedStatus(parsed.status)) {
       badge.classList.add('isWatched');
-      badge.textContent = '已看';
-      badge.title = '已标记看过';
     } else {
       badge.classList.add('isUnwatched');
-      badge.textContent = '未看';
-      badge.title = '一键标记为看过';
-    }
-  }
-
-  function onBadgeClick(badge, subjectId) {
-    if (badge.disabled) return;
-    var cached = statusCache[subjectId];
-    if (cached === undefined) return;
-
-    if (DoubanMark.isWatchedStatus(cached)) {
-      paintBadge(badge, cached, 'hint');
-      window.setTimeout(function () {
-        if (statusCache[subjectId] === cached) paintBadge(badge, cached, '');
-      }, FEEDBACK_MS);
-      return;
     }
 
-    var ck = currentCk();
-    if (!DoubanMark.isLoggedInCk(ck)) {
-      flashError(badge, cached);
-      return;
+    if (parsed.type) {
+      badge.setAttribute('data-subject-type', parsed.type);
+    } else {
+      badge.removeAttribute('data-subject-type');
     }
 
-    paintBadge(badge, cached, 'busy');
-    postCollect(subjectId, ck).then(function (result) {
-      if (result.ok) {
-        rememberStatus(subjectId, 'collect');
-        return;
-      }
-      flashError(badge, statusCache[subjectId]);
-    }, function () {
-      flashError(badge, statusCache[subjectId]);
-    });
+    badge.textContent = DoubanMark.formatBadgeText(parsed.status, parsed.type);
+    badge.title = DoubanMark.formatBadgeTitle(parsed.status, parsed.type);
   }
 
-  function flashError(badge, status) {
-    paintBadge(badge, status, 'error');
-    window.setTimeout(function () {
-      paintBadge(badge, statusCache[badge.getAttribute('data-subject-id')], '');
-    }, ERROR_MS);
-  }
-
-  function rememberStatus(subjectId, status) {
-    statusCache[subjectId] = status;
+  function rememberStatus(subjectId, record) {
+    statusCache[subjectId] = asRecord(record);
     var badges = document.querySelectorAll('.' + BADGE_CLASS + '[data-subject-id="' + subjectId + '"]');
     for (var i = 0; i < badges.length; i++) {
-      paintBadge(badges[i], status, '');
+      paintBadge(badges[i], statusCache[subjectId]);
     }
   }
 
@@ -235,22 +170,22 @@
     waiters[subjectId].push(done);
     if (waiters[subjectId].length > 1) return;
     enqueueFetch(function (release) {
-      fetchAbstract(subjectId).then(function (status) {
-        statusCache[subjectId] = status;
-        flushWaiters(subjectId, status);
+      fetchAbstract(subjectId).then(function (record) {
+        rememberStatus(subjectId, record);
+        flushWaiters(subjectId, statusCache[subjectId]);
         release();
       }, function () {
-        statusCache[subjectId] = '';
-        flushWaiters(subjectId, '');
+        rememberStatus(subjectId, fallbackRecord(subjectId));
+        flushWaiters(subjectId, statusCache[subjectId]);
         release();
       });
     });
   }
 
-  function flushWaiters(subjectId, status) {
+  function flushWaiters(subjectId, record) {
     var list = waiters[subjectId] || [];
     waiters[subjectId] = [];
-    for (var i = 0; i < list.length; i++) list[i](status);
+    for (var i = 0; i < list.length; i++) list[i](record);
   }
 
   function enqueueFetch(task) {
@@ -269,6 +204,13 @@
     }
   }
 
+  function fallbackRecord(subjectId) {
+    return {
+      status: '',
+      type: DoubanMark.parseTypeFromDocument(document, location.href, subjectId) || ''
+    };
+  }
+
   function fetchAbstract(subjectId) {
     return fetch(DoubanMark.abstractUrl(subjectId), {
       method: 'GET',
@@ -281,32 +223,20 @@
       if (!res.ok) return '';
       return res.text();
     }).then(function (text) {
-      if (!text) return '';
+      var fallback = fallbackRecord(subjectId);
+      if (!text) return fallback;
       var json;
       try {
         json = JSON.parse(text);
       } catch (err) {
-        return '';
+        return fallback;
       }
       var parsed = DoubanMark.parseAbstractStatus(json);
-      return parsed.ok ? parsed.status : '';
-    });
-  }
-
-  function postCollect(subjectId, ck) {
-    return fetch(DoubanMark.interestUrl(subjectId), {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        Accept: 'application/json, text/javascript, */*; q=0.01',
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      body: DoubanMark.buildCollectBody(ck)
-    }).then(function (res) {
-      return res.text().then(function (text) {
-        return DoubanMark.parseInterestResponse(res.status, text);
-      });
+      if (!parsed.ok) return fallback;
+      return {
+        status: parsed.status,
+        type: parsed.type || fallback.type || ''
+      };
     });
   }
 })();

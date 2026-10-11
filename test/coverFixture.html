@@ -2,7 +2,7 @@
 <html lang="zh-CN" data-douban-mark-fixture="1">
 <head>
   <meta charset="utf-8">
-  <title>豆瓣一键看过 - 本地夹具</title>
+  <title>豆瓣看过角标 - 本地夹具</title>
   <link rel="stylesheet" href="../content.css">
   <style>
     body { font: 14px/1.5 sans-serif; margin: 24px; background: #f6f6f1; }
@@ -20,7 +20,7 @@
   </style>
 </head>
 <body>
-  <p class="note">本地夹具：模拟首页 / 榜单 / 搜索 / 条目封面。点击「未看」应走 POST（本页拦截为假接口），不应出现原生收藏对话框。</p>
+  <p class="note">本地夹具：模拟首页 / 榜单 / 搜索 / 条目封面。角标只读、点击应穿透到封面链接，不应 POST collect，也不应出现原生收藏对话框。</p>
 
   <section>
     <h2>条目封面 #mainpic</h2>
@@ -28,6 +28,9 @@
       <a class="nbgnbg" href="https://movie.douban.com/subject/1292052/photos?type=R" title="点击看更多海报">
         <img alt="夹具海报" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==">
       </a>
+    </div>
+    <div id="info">
+      <span class="pl">片长:</span> 142分钟
     </div>
   </section>
 
@@ -78,13 +81,14 @@
 
   <script>
     var abstractStore = {
-      '1292052': '',
-      '1291546': 'collect',
-      '37068446': '',
-      '36439868': 'wish',
-      '35278770': '',
-      '1292722': ''
+      '1292052': { status: '', subtype: 'Movie', is_tv: false },
+      '1291546': { status: 'collect', subtype: 'Movie', is_tv: false },
+      '37068446': { status: '', subtype: 'Movie', is_tv: false },
+      '36439868': { status: 'wish', subtype: 'TV', is_tv: true },
+      '35278770': { status: '', subtype: 'TV', is_tv: true },
+      '1292722': { status: '' }
     };
+    var postedIds = [];
 
     var nativeFetch = window.fetch.bind(window);
     window.fetch = function (url, options) {
@@ -93,39 +97,50 @@
       var abs = href.match(/subject_abstract\?subject_id=(\d+)/);
       if (abs) {
         id = abs[1];
+        var row = abstractStore[id] || { status: '' };
         return Promise.resolve(new Response(JSON.stringify({
           r: 0,
-          subject: { id: id, collection_status: abstractStore[id] || '' }
+          subject: {
+            id: id,
+            collection_status: row.status || '',
+            subtype: row.subtype,
+            is_tv: row.is_tv,
+            type_name: row.type_name
+          }
         }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
       }
       var interest = href.match(/\/j\/subject\/(\d+)\/interest/);
       if (interest) {
         id = interest[1];
-        var body = (options && options.body) || '';
-        if (String(body).indexOf('interest=collect') === -1) {
-          return Promise.resolve(new Response(JSON.stringify({ r: 1, msg: 'bad body' }), { status: 200 }));
-        }
-        if (String(body).indexOf('ck=') === -1) {
-          return Promise.resolve(new Response(JSON.stringify({ r: 1, msg: 'no ck' }), { status: 200 }));
-        }
-        abstractStore[id] = 'collect';
-        return Promise.resolve(new Response(JSON.stringify({ r: 0, interest_status: 'collect' }), { status: 200 }));
+        postedIds.push(id);
+        return Promise.resolve(new Response(JSON.stringify({ r: 1, msg: 'readonly' }), { status: 200 }));
       }
       return nativeFetch(url, options);
     };
-
-    document.cookie = 'ck=test';
   </script>
   <script src="../markCore.js"></script>
   <script src="../content.js"></script>
   <script>
     (function () {
       function snapshot() {
+        var badges = document.querySelectorAll('.doubanMarkBadge');
+        var texts = [];
+        var types = [];
+        var pointerEvents = [];
+        for (var i = 0; i < badges.length; i++) {
+          texts.push(badges[i].textContent);
+          types.push(badges[i].getAttribute('data-subject-type') || '');
+          pointerEvents.push(window.getComputedStyle(badges[i]).pointerEvents);
+        }
         return {
-          count: document.querySelectorAll('.doubanMarkBadge').length,
+          count: badges.length,
           unwatched: document.querySelectorAll('.doubanMarkBadge.isUnwatched').length,
           watched: document.querySelectorAll('.doubanMarkBadge.isWatched').length,
           error: document.querySelectorAll('.doubanMarkBadge.isError').length,
+          texts: texts,
+          types: types,
+          pointerEvents: pointerEvents,
+          posted: postedIds.slice(),
           dialog: (document.getElementById('dialog') || {}).textContent || ''
         };
       }
