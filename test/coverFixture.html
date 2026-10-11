@@ -15,12 +15,13 @@
     .nbg img { width: 75px; height: 110px; background: #777; display: block; }
     .item-root .cover { width: 100px; height: 140px; background: #666; display: block; }
     .movie-content img { width: 115px; height: 160px; background: #555; display: block; }
+    .cover-caption { margin: 4px 0 0; font-size: 12px; color: #333; max-width: 115px; }
     .note { color: #666; max-width: 52em; }
     section { margin-bottom: 28px; }
   </style>
 </head>
 <body>
-  <p class="note">本地夹具：模拟首页 / 榜单 / 搜索 / 条目封面。角标只读（pointer-events:none），文案为 statusEmoji+typeEmoji（如 👀🎬 / ❤️📺 / 🟠📺 / ✅🎬），点击应穿透到封面链接，不应 POST collect，也不应出现原生收藏对话框。</p>
+  <p class="note">本地夹具：模拟首页 / 榜单 / 搜索 / 条目封面。角标在封面底边下方（不叠海报），只读（pointer-events:none），文案为 statusEmoji+typeEmoji（如 👀🎬 / ❤️📺 / 🟠📺 / ✅🎬），点击应穿透到封面链接，不应 POST collect，也不应出现原生收藏对话框。</p>
 
   <section>
     <h2>条目封面 #mainpic</h2>
@@ -42,19 +43,25 @@
         <a href="https://movie.douban.com/subject/1291546/">
           <img width="100" alt="霸王别姬" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==">
         </a>
+        <p class="cover-caption">霸王别姬</p>
       </div>
       <li class="poster" style="list-style:none">
         <a href="https://movie.douban.com/subject/37068446/?from=showing">
           <img alt="热映" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==">
         </a>
+        <p class="cover-caption">热映</p>
       </li>
-      <a class="nbg" href="https://movie.douban.com/subject/36439868/" title="排行">
-        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" width="75" alt="排行">
-      </a>
+      <div>
+        <a class="nbg" href="https://movie.douban.com/subject/36439868/" title="排行">
+          <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" width="75" alt="排行">
+        </a>
+        <p class="cover-caption">排行</p>
+      </div>
       <div class="item-root">
         <a class="cover-link" href="https://movie.douban.com/subject/35278770/">
           <img class="cover" alt="搜索结果" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==">
         </a>
+        <p class="cover-caption">搜索结果</p>
       </div>
       <div class="movie-list-item unwatched">
         <div class="movie-content">
@@ -62,6 +69,7 @@
             <img class="movie-img" alt="分类榜" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==">
           </a>
         </div>
+        <p class="cover-caption">分类榜</p>
       </div>
     </div>
   </section>
@@ -127,10 +135,20 @@
         var texts = [];
         var types = [];
         var pointerEvents = [];
+        var belowCover = [];
         for (var i = 0; i < badges.length; i++) {
           texts.push(badges[i].textContent);
           types.push(badges[i].getAttribute('data-subject-type') || '');
           pointerEvents.push(window.getComputedStyle(badges[i]).pointerEvents);
+          var host = badges[i].closest('.doubanMarkHost');
+          var img = host && host.querySelector('img');
+          if (!img) {
+            belowCover.push(false);
+          } else {
+            var badgeBox = badges[i].getBoundingClientRect();
+            var imgBox = img.getBoundingClientRect();
+            belowCover.push(badgeBox.top >= imgBox.bottom - 1);
+          }
         }
         return {
           count: badges.length,
@@ -140,6 +158,7 @@
           texts: texts,
           types: types,
           pointerEvents: pointerEvents,
+          belowCover: belowCover,
           posted: postedIds.slice(),
           dialog: (document.getElementById('dialog') || {}).textContent || ''
         };

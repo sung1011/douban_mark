@@ -1,6 +1,6 @@
 # 豆瓣看过角标
 
-Chrome / Edge Manifest V3 扩展。在 `movie.douban.com` 与 `search.douban.com/movie` 的电影**封面海报左上角**显示只读角标（首页 / 榜单 / 搜索 / 条目详情都会打点）。
+Chrome / Edge Manifest V3 扩展。在 `movie.douban.com` 与 `search.douban.com/movie` 的电影**封面海报底边下方**显示只读角标（首页 / 榜单 / 搜索 / 条目详情都会打点），不叠在海报上。
 
 角标文案 = **statusEmoji + typeEmoji**（不写中文状态/类型词；`title` 仍用中文解释，例如 `想看 · 剧集`）。
 
@@ -51,13 +51,13 @@ Chrome / Edge Manifest V3 扩展。在 `movie.douban.com` 与 `search.douban.com
 ## 如何验证
 
 1. 在浏览器里登录或不登录均可：角标只读，点上去应打开封面链接，不应出现「添加收藏」对话框，也不应改写看过状态。
-2. 打开条目页，例如 `https://movie.douban.com/subject/1292052/`：封面左上角有 emoji 角标，电影应为 `👀🎬` / `❤️🎬` / `🟠🎬` / `✅🎬` 之一。
+2. 打开条目页，例如 `https://movie.douban.com/subject/1292052/`：封面底边下方有 emoji 角标（不压海报），电影应为 `👀🎬` / `❤️🎬` / `🟠🎬` / `✅🎬` 之一。
 3. 打开剧集条目，例如 `https://movie.douban.com/subject/3016187/`：应为 `👀📺` / `❤️📺` / `🟠📺` / `✅📺` 之一。
-4. 打开列表/首页/搜索，例如 `https://movie.douban.com/top250`、`https://movie.douban.com/`、`https://search.douban.com/movie/subject_search?search_text=肖申克`：海报封面同样有角标（不只详情页）。
+4. 打开列表/首页/搜索，例如 `https://movie.douban.com/top250`、`https://movie.douban.com/`、`https://search.douban.com/movie/subject_search?search_text=肖申克`：海报封面底边下方同样有角标（不叠海报、不挡标题）。
 5. 点角标区域：应进入封面链接对应页面，角标文案与颜色不变。
 6. 搜索页多滚几次、或打开分类榜 `https://movie.douban.com/typerank?...`：新插入的封面也应出现角标。
 
-本地夹具：用浏览器打开 `test/coverFixture.html`（需允许该页加载同目录脚本）。夹具会拦截 `fetch`，角标应带类型文案；`#autoResult` 里 `posted` 应为 `false`，`pointerEvents` 应为 `none`。
+本地夹具：用浏览器打开 `test/coverFixture.html`（需允许该页加载同目录脚本）。夹具会拦截 `fetch`，角标应带类型文案并在封面底边下；`#autoResult` 里 `posted` 应为 `false`，`pointerEvents` 应为 `none`，`belowCover` 应全为 `true`。
 
 命令行：`python3 test/verifyMark.py`
 
@@ -66,7 +66,7 @@ Chrome / Edge Manifest V3 扩展。在 `movie.douban.com` 与 `search.douban.com
 - 仅内容脚本：`markCore.js` + `content.js` + `content.css`。没有 background / service worker，没有 MAIN world，没有 `pageBridge.js`。
 - 读状态与类型：`GET https://movie.douban.com/j/subject_abstract?subject_id={id}`。状态看 `subject.collection_status`（`collect`/`P`/`看过`/`wish`/`F`/`想看`/`do`/`在看`/空）；类型优先 `subject.is_tv`，其次 `subject.subtype`（`Movie` / `TV`），并兼容 `type_name` / `media_type` 等字段。
 - 类型回退：若接口没有类型，且当前是该条目的详情页，则从 DOM 提示推断（`og:type`、`#info` 里的「集数 / 单集片长」、标题里的「电视剧」等）。
-- 角标为装饰 `span`，`pointer-events: none`，不绑定点击、不读取 `ck`、不调用 `/j/subject/{id}/interest`。
+- 角标为装饰 `span`，`pointer-events: none`，不绑定点击、不读取 `ck`、不调用 `/j/subject/{id}/interest`。挂在封面 host 底边下方：host `padding-bottom` 留空，角标 `position: absolute; bottom`，避免叠海报或挡住标题。
 - 封面：带海报图的 `/subject/{id}` 链接，以及条目页 `#mainpic`。不打点短评/剧照子页、也跳过宽高小于 50px 的搜索建议缩略图。
 
 ## 选择器与接口风险
@@ -78,8 +78,8 @@ Chrome / Edge Manifest V3 扩展。在 `movie.douban.com` 与 `search.douban.com
 | 条目封面 | `#mainpic`，id 来自 URL `/subject/{id}/` | 改 id 后详情页角标会消失 |
 | Top250 等列表 | `.pic > a[href*="/subject/"] > img` | 改 class 仍可退化为「带图的 subject 链接」 |
 | 首页热映 | `li.poster > a > img` | 轮播动态插入，依赖 MutationObserver |
-| 排行榜 | `a.nbg > img` | 封面较小（约 75px），需与搜索建议 40px 缩略图区分；双段文案靠略小字号和 `nowrap` 塞进左上角 |
+| 排行榜 | `a.nbg > img` | 封面较小（约 75px），需与搜索建议 40px 缩略图区分；双段文案靠略小字号和 `nowrap` 放在封面底边下 |
 | 搜索 SPA | `.item-root a.cover-link img.cover`，结果后插入 | 无 MutationObserver 会漏打点 |
-| 分类榜 | `.movie-content img.movie-img`（懒加载 `data-original`） | 绝对定位角标，避免再包一层把布局撑乱 |
+| 分类榜 | `.movie-content img.movie-img`（懒加载 `data-original`） | 绝对定位角标 + host `padding-bottom`，避免再包一层把布局撑乱 |
 | 状态接口 | `/j/subject_abstract?subject_id=` 的 `collection_status` | 未映射的码会显示未看 👀 |
 | 类型接口 | 同接口的 `is_tv` / `subtype` | 字段缺失时省略类型 emoji |

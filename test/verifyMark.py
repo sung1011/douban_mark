@@ -285,6 +285,12 @@ def main() -> int:
         failures.append("content.css missing wish/doing background classes")
     if "#3b82c4" not in css or "#e67e22" not in css or "#2aad27" not in css or "#6b6b6b" not in css:
         failures.append("content.css must keep green/blue/orange/gray state colors")
+    if "padding-bottom" not in css:
+        failures.append("content.css host must reserve padding-bottom below the cover")
+    if re.search(r"\.doubanMarkBadge\s*\{[^}]*\btop:\s*4px\b", css, re.S):
+        failures.append("content.css badge must not overlay the poster at top: 4px")
+    if not re.search(r"\.doubanMarkBadge\s*\{[^}]*\bbottom:\s*\d+px\b", css, re.S):
+        failures.append("content.css badge must sit at the host bottom below the cover")
 
     core = NODE.read_text(encoding="utf-8")
     if "interest=collect" in core or "interestUrl" in core:
