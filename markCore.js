@@ -32,8 +32,49 @@
     return true;
   };
 
+  api.STATUS_LABEL = {
+    none: '未看',
+    wish: '想看',
+    do: '在看',
+    collect: '看过'
+  };
+
+  api.STATUS_EMOJI = {
+    none: '👀',
+    wish: '❤️',
+    do: '🟠',
+    collect: '✅'
+  };
+
+  api.STATUS_CLASS = {
+    none: 'isUnwatched',
+    wish: 'isWish',
+    do: 'isDoing',
+    collect: 'isWatched'
+  };
+
+  api.TYPE_EMOJI = {
+    movie: '🎬',
+    tv: '📺'
+  };
+
+  api.normalizeStatus = function (status) {
+    if (status == null) return 'none';
+    var raw = String(status).trim();
+    if (!raw) return 'none';
+    var key = raw.toLowerCase();
+    if (key === 'collect' || key === 'p' || raw === '看过') return 'collect';
+    if (key === 'wish' || key === 'f' || raw === '想看') return 'wish';
+    if (key === 'do' || raw === '在看') return 'do';
+    return 'none';
+  };
+
   api.isWatchedStatus = function (status) {
-    return status === 'collect' || status === '看过';
+    return api.normalizeStatus(status) === 'collect';
+  };
+
+  api.statusClass = function (status) {
+    return api.STATUS_CLASS[api.normalizeStatus(status)] || api.STATUS_CLASS.none;
   };
 
   api.abstractUrl = function (subjectId) {
@@ -165,14 +206,18 @@
   };
 
   api.formatBadgeText = function (status, type) {
-    var prefix = api.isWatchedStatus(status) ? '已看' : '未看';
-    var label = api.formatTypeLabel(type);
-    if (!label) return prefix;
-    return prefix + '·' + label;
+    var statusKey = api.normalizeStatus(status);
+    var typeKey = type === 'movie' || type === 'tv' ? type : api.normalizeSubjectType(type);
+    var text = api.STATUS_EMOJI[statusKey] || api.STATUS_EMOJI.none;
+    if (typeKey && api.TYPE_EMOJI[typeKey]) text += api.TYPE_EMOJI[typeKey];
+    return text;
   };
 
   api.formatBadgeTitle = function (status, type) {
-    return api.formatBadgeText(status, type);
+    var statusKey = api.normalizeStatus(status);
+    var statusLabel = api.STATUS_LABEL[statusKey] || api.STATUS_LABEL.none;
+    var typeLabel = api.formatTypeLabel(type);
+    return typeLabel ? statusLabel + ' · ' + typeLabel : statusLabel;
   };
 
   api.parseAbstractStatus = function (json) {

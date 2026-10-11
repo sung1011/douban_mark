@@ -135,13 +135,9 @@
   function paintBadge(badge, record) {
     if (!badge || !badge.parentNode) return;
     var parsed = asRecord(record);
-    badge.classList.remove('isLoading', 'isUnwatched', 'isWatched', 'isBusy', 'isError', 'isHint');
-
-    if (DoubanMark.isWatchedStatus(parsed.status)) {
-      badge.classList.add('isWatched');
-    } else {
-      badge.classList.add('isUnwatched');
-    }
+    badge.classList.remove('isLoading', 'isUnwatched', 'isWish', 'isDoing', 'isWatched', 'isBusy', 'isError', 'isHint');
+    badge.classList.add(DoubanMark.statusClass(parsed.status));
+    badge.setAttribute('data-status', DoubanMark.normalizeStatus(parsed.status));
 
     if (parsed.type) {
       badge.setAttribute('data-subject-type', parsed.type);

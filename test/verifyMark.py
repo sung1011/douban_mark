@@ -141,8 +141,28 @@ def main() -> int:
     )
 
     check("watched collect", node_eval("m.isWatchedStatus('collect')"), True)
+    check("watched P", node_eval("m.isWatchedStatus('P')"), True)
+    check("watched 看过", node_eval("m.isWatchedStatus('看过')"), True)
     check("watched wish", node_eval("m.isWatchedStatus('wish')"), False)
+    check("watched F", node_eval("m.isWatchedStatus('F')"), False)
+    check("watched do", node_eval("m.isWatchedStatus('do')"), False)
     check("watched empty", node_eval("m.isWatchedStatus('')"), False)
+
+    check("status none empty", node_eval("m.normalizeStatus('')"), "none")
+    check("status none null", node_eval("m.normalizeStatus(null)"), "none")
+    check("status wish", node_eval("m.normalizeStatus('wish')"), "wish")
+    check("status F", node_eval("m.normalizeStatus('F')"), "wish")
+    check("status 想看", node_eval("m.normalizeStatus('想看')"), "wish")
+    check("status do", node_eval("m.normalizeStatus('do')"), "do")
+    check("status 在看", node_eval("m.normalizeStatus('在看')"), "do")
+    check("status collect", node_eval("m.normalizeStatus('collect')"), "collect")
+    check("status P", node_eval("m.normalizeStatus('P')"), "collect")
+    check("status 看过", node_eval("m.normalizeStatus('看过')"), "collect")
+    check("status unknown", node_eval("m.normalizeStatus('N')"), "none")
+    check("class none", node_eval("m.statusClass('')"), "isUnwatched")
+    check("class wish", node_eval("m.statusClass('F')"), "isWish")
+    check("class do", node_eval("m.statusClass('在看')"), "isDoing")
+    check("class collect", node_eval("m.statusClass('P')"), "isWatched")
 
     check(
         "abstract url",
@@ -154,6 +174,14 @@ def main() -> int:
     check("abstract collect ok", parsed.get("ok"), True)
     check("abstract collect status", parsed.get("status"), "collect")
     check("abstract collect type", parsed.get("type"), "movie")
+    parsed = node_eval("m.parseAbstractStatus({r:0,subject:{collection_status:'P',subtype:'Movie',is_tv:false}})")
+    check("abstract P status", parsed.get("status"), "P")
+    check("abstract P type", parsed.get("type"), "movie")
+    parsed = node_eval("m.parseAbstractStatus({r:0,subject:{collection_status:'F',is_tv:true,subtype:'TV'}})")
+    check("abstract F status", parsed.get("status"), "F")
+    check("abstract F type", parsed.get("type"), "tv")
+    parsed = node_eval("m.parseAbstractStatus({r:0,subject:{collection_status:'do',subtype:'TV'}})")
+    check("abstract do status", parsed.get("status"), "do")
     parsed = node_eval("m.parseAbstractStatus({r:0,subject:{collection_status:'',is_tv:true,subtype:'TV'}})")
     check("abstract tv type", parsed.get("type"), "tv")
     parsed = node_eval("m.parseAbstractStatus({r:0,subject:{collection_status:''}})")
@@ -184,11 +212,16 @@ def main() -> int:
     )
     check("type unknown", node_eval("m.parseSubjectType({subject:{collection_status:''}})"), "")
 
-    check("badge 未看电影", node_eval("m.formatBadgeText('','movie')"), "未看·电影")
-    check("badge 已看剧集", node_eval("m.formatBadgeText('collect','tv')"), "已看·剧集")
-    check("badge 未看未知", node_eval("m.formatBadgeText('','')"), "未看")
-    check("badge 已看未知", node_eval("m.formatBadgeText('collect','')"), "已看")
-    check("badge wish 剧集", node_eval("m.formatBadgeText('wish','tv')"), "未看·剧集")
+    check("badge 👀🎬", node_eval("m.formatBadgeText('','movie')"), "👀🎬")
+    check("badge ❤️📺", node_eval("m.formatBadgeText('wish','tv')"), "❤️📺")
+    check("badge 🟠🎬", node_eval("m.formatBadgeText('do','movie')"), "🟠🎬")
+    check("badge ✅📺", node_eval("m.formatBadgeText('collect','tv')"), "✅📺")
+    check("badge F movie", node_eval("m.formatBadgeText('F','movie')"), "❤️🎬")
+    check("badge P omit type", node_eval("m.formatBadgeText('P','')"), "✅")
+    check("badge 未看未知", node_eval("m.formatBadgeText('','')"), "👀")
+    check("title wish tv", node_eval("m.formatBadgeTitle('wish','tv')"), "想看 · 剧集")
+    check("title none movie", node_eval("m.formatBadgeTitle('','movie')"), "未看 · 电影")
+    check("title collect no type", node_eval("m.formatBadgeTitle('collect','')"), "看过")
 
     check(
         "dom og tv",
@@ -248,6 +281,10 @@ def main() -> int:
         failures.append("content.css badge must use pointer-events: none")
     if "cursor: pointer" in css:
         failures.append("content.css badge must not look clickable")
+    if ".doubanMarkBadge.isWish" not in css or ".doubanMarkBadge.isDoing" not in css:
+        failures.append("content.css missing wish/doing background classes")
+    if "#3b82c4" not in css or "#e67e22" not in css or "#2aad27" not in css or "#6b6b6b" not in css:
+        failures.append("content.css must keep green/blue/orange/gray state colors")
 
     core = NODE.read_text(encoding="utf-8")
     if "interest=collect" in core or "interestUrl" in core:
@@ -259,7 +296,7 @@ def main() -> int:
             print(" -", item)
         return 1
 
-    print("ok: type labels + readonly badge + cover selectors (list/home/search/detail)")
+    print("ok: four-state emoji badge + readonly + cover selectors")
     return 0
 
 

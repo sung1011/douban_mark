@@ -21,9 +21,9 @@ a.doubanMarkHostLink {
   white-space: nowrap;
   border: 0;
   border-radius: 3px;
-  background: #2aad27;
+  background: #6b6b6b;
   color: #fff;
-  font: 11px/1.2 Helvetica, Arial, "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font: 13px/1.2 Helvetica, Arial, "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   letter-spacing: 0;
   cursor: inherit;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
@@ -32,11 +32,19 @@ a.doubanMarkHostLink {
 }
 
 .doubanMarkBadge.isUnwatched {
-  background: #2aad27;
+  background: #6b6b6b;
+}
+
+.doubanMarkBadge.isWish {
+  background: #3b82c4;
+}
+
+.doubanMarkBadge.isDoing {
+  background: #e67e22;
 }
 
 .doubanMarkBadge.isWatched {
-  background: #6b6b6b;
+  background: #2aad27;
 }
 
 .doubanMarkBadge.isLoading {
